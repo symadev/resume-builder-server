@@ -2,6 +2,8 @@ const express = require('express')
 const app = express()
 require('dotenv').config()
 const cors = require('cors');
+const { ObjectId } = require('mongodb');
+
 
 const jwt = require('jsonwebtoken');
 
@@ -120,6 +122,29 @@ async function run() {
       res.send(result)
     })
 
+
+
+
+        // Get all registered users (admin only)
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+      const users = await userCollection.find().toArray();
+      res.send(users);
+    });
+
+  app.patch('/users/:id/role', verifyToken, verifyAdmin, async (req, res) => {
+  const userId = req.params.id;
+  const { role } = req.body;
+
+  if (!role || !['user', 'admin', 'premium'].includes(role)) {
+  return res.status(400).send({ message: 'Invalid role' });
+}
+
+  const result = await userCollection.updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: { role } }
+  );
+  res.send(result);
+});
 
 
 
