@@ -159,11 +159,57 @@ async function run() {
 
 
 
+app.post('/track-download', verifyToken, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).send({ message: "Email required" });
+
+    const filter = { email };
+    const update = {
+      $inc: { downloads: 1 }, 
+    };
+
+    const options = { upsert: true }; 
+    const result = await userCollection.updateOne(filter, update, options);
+
+    res.send(result);
+  } catch (err) {
+    console.error("Download tracking error:", err);
+    res.status(500).send({ message: "Server error", error: err.message });
+  }
+});
 
 
 
 
 
+app.get('/profile-metrics', verifyToken, async (req, res) => {
+  const { email } = req.query;
+  const user = await userCollection.findOne({ email });
+
+  const downloads = user?.downloads || 0;
+  const achievementScore = downloads * 10;
+
+  res.send({
+    downloads,
+    views: user?.views || 0,
+    searchLinks: user?.searchLinks || 0,
+    achievementScore
+  });
+});
+
+
+
+
+
+app.post('/track-view', verifyToken, async (req, res) => {
+  const { email } = req.body;
+  const filter = { email };
+  const update = { $inc: { views: 1 } };
+  const options = { upsert: true };
+  const result = await userCollection.updateOne(filter, update, options);
+  res.send(result);
+});
 
 
 
