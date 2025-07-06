@@ -188,12 +188,15 @@ app.get('/profile-metrics', verifyToken, async (req, res) => {
   const user = await userCollection.findOne({ email });
 
   const downloads = user?.downloads || 0;
-  const achievementScore = downloads * 10;
+  const views = user?.views || 0;
+  const searchLinks = user?.searchLinks || 0;
+
+  const achievementScore = downloads + views + searchLinks;
 
   res.send({
     downloads,
-    views: user?.views || 0,
-    searchLinks: user?.searchLinks || 0,
+    views,
+    searchLinks,
     achievementScore
   });
 });
@@ -210,6 +213,16 @@ app.post('/track-view', verifyToken, async (req, res) => {
   const result = await userCollection.updateOne(filter, update, options);
   res.send(result);
 });
+
+app.post('/track-search-link', verifyToken, async (req, res) => {
+  const { email } = req.body;
+  const filter = { email };
+  const update = { $inc: { searchLinks: 1 } };
+  const options = { upsert: true };
+  const result = await userCollection.updateOne(filter, update, options);
+  res.send(result);
+});
+
 
 
 
