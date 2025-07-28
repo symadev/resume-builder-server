@@ -3,6 +3,8 @@ const app = express()
 require('dotenv').config()
 const cors = require('cors');
 const { ObjectId } = require('mongodb');
+const axios = require('axios');
+
 
 
 const jwt = require('jsonwebtoken');
@@ -30,7 +32,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const userCollection = client.db("ResumeBuilder").collection("users");
 
@@ -80,44 +82,44 @@ async function run() {
 
 
 
-app.post('/api/ai', async (req, res) => {
-  const { message, context } = req.body;
+    app.post('/api/ai', async (req, res) => {
+      const { message, context } = req.body;
 
-  if (!message) {
-    return res.status(400).json({ error: 'Message is required' });
-  }
-
-  try {
-    const systemPrompt = `You are a helpful AI assistant for resume building and career development. Context: ${context || 'general career guidance'}`;
-
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+      if (!message) {
+        return res.status(400).json({ error: 'Message is required' });
       }
-    );
 
-    const reply = response.data.choices[0].message.content.trim();
-    res.status(200).json({ reply });
+      try {
+        const systemPrompt = `You are a helpful AI assistant for resume building and career development. Context: ${context || 'general career guidance'}`;
 
-  } catch (error) {
-    console.error('OpenAI API error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to generate AI response' });
-  }
-});
+        const response = await axios.post(
+          'https://api.openai.com/v1/chat/completions',
+          {
+            model: 'gpt-3.5-turbo',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: message }
+            ],
+            temperature: 0.7
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
 
-    
+        const reply = response.data.choices[0].message.content.trim();
+        res.status(200).json({ reply });
+
+      } catch (error) {
+        console.error('OpenAI API error:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Failed to generate AI response' });
+      }
+    });
+
+
 
 
 
@@ -160,29 +162,29 @@ app.post('/api/ai', async (req, res) => {
 
 
 
-        // Get all registered users (admin only)
+    // Get all registered users (admin only)
     app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       const users = await userCollection.find().toArray();
       res.send(users);
     });
 
-  app.patch('/users/:id/role', verifyToken, verifyAdmin, async (req, res) => {
-  const userId = req.params.id;
-  const { role } = req.body;
+    app.patch('/users/:id/role', verifyToken, verifyAdmin, async (req, res) => {
+      const userId = req.params.id;
+      const { role } = req.body;
 
-  if (!role || !['user', 'admin', 'premium'].includes(role)) {
-  return res.status(400).send({ message: 'Invalid role' });
-}
+      if (!role || !['user', 'admin', 'premium'].includes(role)) {
+        return res.status(400).send({ message: 'Invalid role' });
+      }
 
-  const result = await userCollection.updateOne(
-    { _id: new ObjectId(userId) },
-    { $set: { role } }
-  );
-  res.send(result);
-});
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        { $set: { role } }
+      );
+      res.send(result);
+    });
 
 
- app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -194,91 +196,75 @@ app.post('/api/ai', async (req, res) => {
 
 
 
-app.post('/track-download', verifyToken, async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).send({ message: "Email required" });
+    app.post('/track-download', verifyToken, async (req, res) => {
+      try {
+        const { email } = req.body;
+        if (!email) return res.status(400).send({ message: "Email required" });
 
-    const filter = { email };
-    const update = {
-      $inc: { downloads: 1 }, 
-    };
+        const filter = { email };
+        const update = {
+          $inc: { downloads: 1 },
+        };
 
-    const options = { upsert: true }; 
-    const result = await userCollection.updateOne(filter, update, options);
+        const options = { upsert: true };
+        const result = await userCollection.updateOne(filter, update, options);
 
-    res.send(result);
-  } catch (err) {
-    console.error("Download tracking error:", err);
-    res.status(500).send({ message: "Server error", error: err.message });
-  }
-});
-
-
-
-
-
-app.get('/profile-metrics', verifyToken, async (req, res) => {
-  const { email } = req.query;
-  const user = await userCollection.findOne({ email });
-
-  const downloads = user?.downloads || 0;
-  const views = user?.views || 0;
-  const searchLinks = user?.searchLinks || 0;
-
-  const achievementScore = downloads + views + searchLinks;
-
-  res.send({
-    downloads,
-    views,
-    searchLinks,
-    achievementScore
-  });
-});
+        res.send(result);
+      } catch (err) {
+        console.error("Download tracking error:", err);
+        res.status(500).send({ message: "Server error", error: err.message });
+      }
+    });
 
 
 
 
 
-app.post('/track-view', verifyToken, async (req, res) => {
-  const { email } = req.body;
-  const filter = { email };
-  const update = { $inc: { views: 1 } };
-  const options = { upsert: true };
-  const result = await userCollection.updateOne(filter, update, options);
-  res.send(result);
-});
+    app.get('/profile-metrics', verifyToken, async (req, res) => {
+      const { email } = req.query;
+      const user = await userCollection.findOne({ email });
 
-app.post('/track-search-link', verifyToken, async (req, res) => {
-  const { email } = req.body;
-  const filter = { email };
-  const update = { $inc: { searchLinks: 1 } };
-  const options = { upsert: true };
-  const result = await userCollection.updateOne(filter, update, options);
-  res.send(result);
-});
+      const downloads = user?.downloads || 0;
+      const views = user?.views || 0;
+      const searchLinks = user?.searchLinks || 0;
 
+      const achievementScore = downloads + views + searchLinks;
 
+      res.send({
+        downloads,
+        views,
+        searchLinks,
+        achievementScore
+      });
+    });
 
 
 
 
 
+    app.post('/track-view', verifyToken, async (req, res) => {
+      const { email } = req.body;
+      const filter = { email };
+      const update = { $inc: { views: 1 } };
+      const options = { upsert: true };
+      const result = await userCollection.updateOne(filter, update, options);
+      res.send(result);
+    });
 
-
-
-
-
-
-
-
-
+    app.post('/track-search-link', verifyToken, async (req, res) => {
+      const { email } = req.body;
+      const filter = { email };
+      const update = { $inc: { searchLinks: 1 } };
+      const options = { upsert: true };
+      const result = await userCollection.updateOne(filter, update, options);
+      res.send(result);
+    });
 
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
